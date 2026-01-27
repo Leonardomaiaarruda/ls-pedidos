@@ -1,0 +1,110 @@
+/* 1. ESTRUTURA GLOBAL E DASHBOARD */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+    width: 100%;
+}
+
+.card-stat {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-top: 6px solid #2563eb;
+    text-align: center;
+    box-sizing: border-box; /* Garante que o padding não aumente o card */
+}
+
+/* 2. GRÁFICOS - O CONTROLE CRÍTICO */
+.chart-container {
+    position: relative;
+    /* Força uma altura fixa para não 'explodir' na tela */
+    height: 300px !important; 
+    width: 100%;
+    margin: 0 auto 20px auto;
+}
+
+canvas {
+    /* Impede que o canvas ignore o tamanho do container pai */
+    max-width: 100% !important;
+    max-height: 100% !important;
+}
+
+/* 3. TABELA COM SCROLL LATERAL BLINDADO */
+#areaRelatorio {
+    width: 100%;
+    overflow-x: auto; /* Scroll apenas se necessário */
+    overflow-y: hidden;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    -webkit-overflow-scrolling: touch; /* Suavidade no iPhone */
+}
+
+table {
+    width: 100%;
+    /* No mobile, a tabela precisa ser mais larga que a tela para o texto ficar legível */
+    min-width: 700px; 
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px 15px;
+    white-space: nowrap; /* Impede o texto de quebrar linha e amontoar */
+}
+
+/* 4. ALERTAS */
+.alerta-item {
+    background: #fff1f2;
+    border-left: 5px solid #ef4444;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    word-wrap: break-word; /* Protege contra textos muito longos */
+}
+
+/* =============================================
+   MEDIA QUERIES - REFINAMENTO MOBILE
+   ============================================= */
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .chart-container {
+        height: 250px !important; /* Um pouco menor em tablets */
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px; /* Mais espaço para o conteúdo no celular */
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Coluna única */
+    }
+
+    .card-stat p {
+        font-size: 1.6rem;
+    }
+
+    .chart-container {
+        height: 220px !important; /* Tamanho ideal para celular */
+    }
+
+    /* Ajuste de filtros para não esmagar */
+    .row {
+        flex-direction: column;
+        display: flex;
+        gap: 12px;
+    }
+
+    select, button {
+        font-size: 16px; /* Evita zoom automático no iOS */
+        padding: 12px;
+    }
+}

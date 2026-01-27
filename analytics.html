@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>BI Analytics EPI - LS Tech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <link rel="stylesheet" href="pedidos.css">
+    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="analitcs.css">
+</head>
+<body>
+    <div class="container">
+        <header class="no-print">
+            <button onclick="logout()" class="btn-excluir">Sair</button>
+            <h1>📊 Gestão Estratégica</h1>
+        </header>
+
+         <nav class="menu-principal">
+            <button onclick="window.location.href='Pedidos.html'" class="btn-menu">Pedidos</button>
+            <button class="btn-menu analytics" onclick="alternarTela('analytics', this)">Analytics</button>
+        </nav>
+
+        <div class="card no-print status-bar">
+            <div id="statusConexao" style="display: flex; align-items: center; gap: 10px;">
+                <span id="pontoStatus" style="height: 12px; width: 12px; border-radius: 50%; display: inline-block;"></span>
+                <span id="txtStatus">Sincronizando dados...</span>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card-stat">
+                <h3>Total de EPI'S</h3>
+                <p id="totalMes">0</p>
+            </div>
+            <div class="card-stat" style="border-top-color: #ffc107;">
+                <h3>Média de Retiradas</h3>
+                <p id="mediaConsumo">0</p>
+                <small>por colaborador/período</small>
+            </div>
+            <div class="card-stat" style="border-top-color: #28a745;">
+                <h3>EPI Mais Requisitado</h3>
+                <p id="epiTop" style="font-size: 1.1rem; margin-top: 15px;">---</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Distribuição por Tipo de EPI</h2>
+            <div class="chart-container">
+                <canvas id="graficoEpi"></canvas>
+            </div>
+        </div>
+
+        <div class="card border-danger">
+            <h2>⚠️ Alertas de Consumo Elevado</h2>
+            <p class="instrucao">Acima de 50% da média da equipe no período selecionado:</p>
+            <div id="listaAlertas" class="alerta-container">
+                </div>
+        </div>
+
+        <div class="card">
+            <h2>🔍 Análise Detalhada</h2>
+            <div class="col">
+                <label>🔍 Busca por Nome:</label>
+                <input type="text" id="inputBuscaRapida" placeholder="Digite o nome..." onkeyup="filtrarTabelaPorTexto()">
+            </div>
+
+             <div class="col">
+                <label>Selecionar Colaborador:</label>
+                <select id="filtroFuncionario" onchange="gerarRelatorioIndividual()">
+                    <option value="">Todos os Colaboradores</option>
+                </select>
+            </div>
+
+            <div class="row no-print">
+                <div class="col">
+                    <label>Período:</label>
+                    <select id="filtroPeriodo" onchange="processarDashboard()">
+                        <option value="mes">Este Mês</option>
+                        <option value="ano">Este Ano</option>
+                        <option value="total">Histórico Completo</option>
+                    </select>
+                </div>
+               
+                <div class="col btn-container-print">
+                    <button onclick="window.print()" class="btn-menu" style="background: #2563eb; width: 100%;">🖨️ Exportar PDF</button>
+                </div>
+            </div>
+
+            <div id="areaRelatorio">
+                <h3 id="tituloRelatorio" style="margin-bottom: 15px;">Resumo de Utilização</h3>
+                <div class="tabela-responsiva">
+                    <table id="tabelaAnalise">
+                        <thead>
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>EPI</th>
+                                <th>Data</th>
+                                <th>Frequência</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <script src="analytics.js"></script>
+</body>
+</html>

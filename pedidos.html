@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de EPI - LS Tech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="pedidos.css">
+    <link rel="stylesheet" href="login.css">
+
+</head>
+
+<body>
+ <div class="container">
+    <header>
+        <button onclick="logout()" class="btn-excluir">Sair</button>
+    </header>
+
+    <nav class="menu-principal">
+        <button class="btn-menu active" onclick="alternarTela('pedidos', this)">📋 Pedidos</button>
+        <button onclick="window.location.href='analytics.html'" class="btn-menu">Analytics</button>
+    </nav>
+
+    <div class="container">
+        
+        <div id="tela-pedidos" class="aba-conteudo">
+            
+            <div class="card">
+                <h2>Status da Conexão</h2>
+                <div id="statusConexao" style="display: flex; align-items: center; gap: 10px;">
+                    <span id="pontoStatus" style="height: 12px; width: 12px; border-radius: 50%; display: inline-block; background-color: #ccc;"></span>
+                    <span id="statusNomes">Sincronizando com a base de dados...</span>
+                </div>
+                <p id="statusTxt" style="font-weight: bold; margin-top: 10px;"></p>
+            </div>
+
+            <div class="card">
+                <h2 id="tituloForm">2. Registrar Pedido de EPI</h2>
+                <input type="hidden" id="editIndex" value="-1">
+
+                <label>Funcionário:</label>
+                <select id="selectFuncionario">
+                    <option value="">-- Aguardando sincronização --</option>
+                </select>
+
+                <label>EPI:</label>
+                <select id="selectEpi">
+                    <option value="CALÇA">CALÇA</option>
+                    <option value="CAMISA">CAMISA</option>
+                    <option value="CAPACETE DE SEGURANÇA">CAPACETE DE SEGURANÇA</option>
+                    <option value="BOTINA COM PAUMILHA ANTI-PERFURANTE">BOTINA COM PAUMILHA ANTI-PERFURANTE</option>
+                    <option value="OCULOS DE PROTEÇÃO">OCULOS DE PROTEÇÃO</option>
+                    <option value="MASCARA PFF1">MASCARA PFF1</option>
+                    <option value="PROTETOR AURICULAR">PROTETOR AURICULAR</option>
+                    <option value="LUVAS">LUVAS</option>
+                    <option value="CINTURÃO PARAQ. COM TALABARTE ABS">CINTURÃO PARAQ. COM TALABARTE ABS</option>
+                </select>
+
+                <div class="row">
+                    <div class="col">
+                        <label>Data:</label>
+                        <input type="date" id="dataPedido">
+                    </div>
+                </div>
+                
+                <button onclick="salvarPedido()" id="btnSalvar" class="btn-save">Salvar Pedido </button>
+                <button onclick="cancelarEdicao()" id="btnCancelar" class="btn-excluir" style="display:none; margin-top:10px; background:#6c757d;">Cancelar Edição</button>
+            </div>
+        </div>
+    </div>
+ </div>
+    
+    <script src="analytics.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
