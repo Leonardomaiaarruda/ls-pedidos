@@ -1,6 +1,5 @@
 (function validarSessaoBlindada() {
     const token = sessionStorage.getItem('lstech_token');
-
     if (!token) {
         sessionStorage.clear();
         window.location.replace('index.html'); 
@@ -9,17 +8,36 @@
 
 function logout() {
     if(confirm("Deseja realmente sair do sistema?")) {
+        sessionStorage.clear();
         localStorage.removeItem('lstech_auth');
         window.location.href = 'index.html';
     }
 }
 
-
-
-// URL da sua Planilha de Pedidos
+// Configurações de API
 const URL_API = "https://script.google.com/macros/s/AKfycbyZPyhDd70Ez-KbJBBTl07Vffpf6Vl2Qexi00Qh1BJdIFbHU7aq50ONE74GEVpeqMZIZg/exec";
+const URL_EPIS = URL_API + "?aba=epis"; 
 let dadosPedidos = [];
+let precosEpis = {}; 
 
+// 1. INTEGRAÇÃO DE PREÇOS (Busca os valores na aba 'epis' coluna B)
+async function carregarPrecos() {
+    try {
+        const resp = await fetch(URL_EPIS);
+        const matriz = await resp.json();
+        // Mapeia o nome do EPI (A) para o Preço (B)
+        matriz.slice(1).forEach(linha => {
+            const nomeEpi = String(linha[0]).trim();
+            const preco = parseFloat(linha[1]) || 0;
+            precosEpis[nomeEpi] = preco;
+        });
+        console.log("Preços carregados da aba epis.");
+    } catch (err) {
+        console.error("Erro ao carregar lista de preços:", err);
+    }
+}
+
+// 2. CARREGAR DADOS DOS PEDIDOS
 async function carregarDados() {
     const txtStatus = document.getElementById('txtStatus');
     const pontoStatus = document.getElementById('pontoStatus');
@@ -28,9 +46,8 @@ async function carregarDados() {
         const response = await fetch(URL_API, { redirect: 'follow' });
         const matriz = await response.json();
         
-        // Processamento blindado contra linhas vazias
         dadosPedidos = matriz.slice(1)
-            .filter(linha => linha[0] && linha[1]) // Garante que tem funcionário e EPI
+            .filter(linha => linha[0] && linha[1]) 
             .map(linha => {
                 const dataObjeto = linha[2] ? new Date(linha[2]) : new Date();
                 return {
@@ -38,15 +55,18 @@ async function carregarDados() {
                     epi: String(linha[1]).trim(),
                     data: dataObjeto,
                     dataTexto: linha[2] ? new Date(linha[2]).toLocaleDateString('pt-BR') : "S/D",
+                    devolucao: linha[3] ? String(linha[3]).toUpperCase().trim() : "NÃO",
                     mes: dataObjeto.getMonth(),
                     ano: dataObjeto.getFullYear()
                 };
             });
 
+        popularSelectFunc(); 
+        processarDashboard();
+
         if(pontoStatus) pontoStatus.style.backgroundColor = "#28a745";
         if(txtStatus) txtStatus.textContent = "Dados atualizados em tempo real";
         
-        processarDashboard();
     } catch (err) {
         console.error(err);
         if(pontoStatus) pontoStatus.style.backgroundColor = "#dc3545";
@@ -54,205 +74,211 @@ async function carregarDados() {
     }
 }
 
+// No processarDashboard, atualizei o cálculo do EPI Top e removi a média
 function processarDashboard() {
     const periodo = document.getElementById('filtroPeriodo').value;
+    const filtroDev = document.getElementById('filtroDevolucao').value; 
+    const filtroColab = document.getElementById('filtroColaborador').value; 
     const hoje = new Date();
     
-    // 1. Filtro de Período Inteligente
+    let custoTotalNaoDevolvido = 0;
+    const contagemGeralEpi = {}; // Para achar o EPI Top
+    const contagemSaidas = {};
+    const contagemDevolucoes = {};
+
     const filtrados = dadosPedidos.filter(d => {
-        if (periodo === 'mes') return d.mes === hoje.getMonth() && d.ano === hoje.getFullYear();
-        if (periodo === 'ano') return d.ano === hoje.getFullYear();
-        return true; // Histórico Total
+        let bP = false;
+        if (periodo === 'mes') bP = (d.mes === hoje.getMonth() && d.ano === hoje.getFullYear());
+        else if (periodo === 'ano') bP = (d.ano === hoje.getFullYear());
+        else if (periodo === 'total') bP = true;
+        else if (periodo === 'custom') {
+            const i = new Date(document.getElementById('dataInicio').value + "T00:00:00");
+            const f = new Date(document.getElementById('dataFim').value + "T23:59:59");
+            bP = (d.data >= i && d.data <= f);
+        }
+        return bP && (filtroDev === 'TODOS' || d.devolucao === filtroDev) && (filtroColab === 'TODOS' || d.funcionario === filtroColab);
     });
 
-    // 2. KPI: Total de Pedidos no período
-    document.getElementById('totalMes').textContent = filtrados.length;
-
-    // 3. KPI: EPI Mais Requisitado (Top 1)
-    const contagemEPI = {};
-    filtrados.forEach(d => contagemEPI[d.epi] = (contagemEPI[d.epi] || 0) + 1);
-    const listaEPIs = Object.entries(contagemEPI).sort((a,b) => b[1] - a[1]);
-    const topEPI = listaEPIs[0];
-    document.getElementById('epiTop').innerHTML = topEPI ? 
-        `${topEPI[0]} <br><span style="font-size: 0.9rem; color: #666;">(${topEPI[1]} unid.)</span>` : "---";
-
-    // 4. KPI: Média de Consumo (Itens por Colaborador)
-    const consumoPorUser = {};
     filtrados.forEach(d => {
-        consumoPorUser[d.funcionario] = (consumoPorUser[d.funcionario] || 0) + 1;
-    });
-    
-    const qtdColaboradores = Object.keys(consumoPorUser).length;
-    const media = qtdColaboradores > 0 ? (filtrados.length / qtdColaboradores).toFixed(1) : 0;
-    document.getElementById('mediaConsumo').textContent = media;
-
-    // 5. Alertas de Desperdício (50% acima da média do grupo)
-    const areaAlertas = document.getElementById('listaAlertas');
-    areaAlertas.innerHTML = "";
-    
-    Object.entries(consumoPorUser).forEach(([nome, qtd]) => {
-        if (qtd > media * 1.5 && media > 0) {
-            const div = document.createElement('div');
-            div.className = "alerta-item";
-            div.style.borderLeft = "4px solid #dc3545";
-            div.style.backgroundColor = "#fff5f5";
-            div.style.padding = "10px";
-            div.style.marginBottom = "5px";
-            div.innerHTML = `⚠️ <strong>${nome}</strong>: ${qtd} itens (Média da equipe é ${media})`;
-            areaAlertas.appendChild(div);
+        contagemGeralEpi[d.epi] = (contagemGeralEpi[d.epi] || 0) + 1;
+        if (d.devolucao === "SIM") {
+            contagemDevolucoes[d.epi] = (contagemDevolucoes[d.epi] || 0) + 1;
+        } else {
+            contagemSaidas[d.epi] = (contagemSaidas[d.epi] || 0) + 1;
+            custoTotalNaoDevolvido += (precosEpis[d.epi] || 0);
         }
     });
 
-    if (areaAlertas.innerHTML === "") {
-        areaAlertas.innerHTML = "<p style='color: #28a745;'>✅ Consumo dentro da normalidade.</p>";
-    }
-
-    popularSelectFunc(Object.keys(consumoPorUser).sort());
-    gerarRelatorioIndividual(filtrados);
-    renderizarGrafico(contagemEPI);
-}
-
-function popularSelectFunc(nomes) {
-    const select = document.getElementById('filtroFuncionario');
-    const atual = select.value;
-    select.innerHTML = '<option value="">Todos os Colaboradores</option>';
-    nomes.forEach(n => {
-        let opt = document.createElement('option');
-        opt.value = n; opt.textContent = n;
-        select.appendChild(opt);
-    });
-    select.value = atual;
-}
-
-function gerarRelatorioIndividual(dadosParaTabela = null) {
-    const nomeBusca = document.getElementById('filtroFuncionario').value;
-    const tbody = document.querySelector('#tabelaAnalise tbody');
+    // Atualiza KPIs
+    document.getElementById('totalMes').textContent = filtrados.length;
+    document.getElementById('custoTotal').textContent = custoTotalNaoDevolvido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     
-    // 1. Define a fonte de dados e limpa a tabela
-    let filtrados = dadosParaTabela || [...dadosPedidos]; // Usa cópia para não afetar o original
+    // EPI Mais Requisitado
+    const topEpi = Object.entries(contagemGeralEpi).sort((a,b) => b[1] - a[1])[0];
+    document.getElementById('epiTop').textContent = topEpi ? `${topEpi[0]} (${topEpi[1]}x)` : "---";
+
+    gerarRelatorioIndividual(filtrados);
+    renderizarGrafico(contagemSaidas, contagemDevolucoes);
+}
+
+// FUNÇÃO DA TABELA ATUALIZADA (Preço R$ 0,00 se devolvido)
+function gerarRelatorioIndividual(filtrados) {
+    const tbody = document.querySelector('#tabelaAnalise tbody');
     tbody.innerHTML = '';
     
-    // 2. Filtra por nome se houver um selecionado
-    if (nomeBusca) {
-        filtrados = filtrados.filter(r => r.funcionario === nomeBusca);
-    }
-
-    // 3. ORDENAÇÃO DECRESCENTE (O mais recente no topo)
-    // Garante que b.data e a.data sejam objetos Date para a subtração funcionar
-    filtrados.sort((a, b) => new Date(b.data) - new Date(a.data));
-
-    document.getElementById('tituloRelatorio').textContent = nomeBusca ? 
-        `Análise Detalhada: ${nomeBusca}` : "Resumo Geral de Utilização";
-
-    filtrados.forEach(reg => {
-        // 4. CÁLCULO DE FREQUÊNCIA (No contexto dos dados filtrados)
-        const frequenciaEpi = filtrados.filter(f => f.epi === reg.epi && f.funcionario === reg.funcionario).length;
+    [...filtrados].sort((a, b) => b.data - a.data).forEach(reg => {
+        const precoUnit = precosEpis[reg.epi] || 0;
+        const freq = filtrados.filter(f => f.epi === reg.epi && f.funcionario === reg.funcionario && f.devolucao !== "SIM").length;
         
-        // 5. LÓGICA DE CORES (Alertas Visuais)
-        let estiloBadge = "background: #e2e8f0; color: #475569;"; // Padrão: Cinza
-        
-        if (frequenciaEpi >= 5) {
-            estiloBadge = "background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;"; // Crítico: Vermelho
-        } else if (frequenciaEpi >= 3) {
-            estiloBadge = "background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;"; // Atenção: Amarelo
+        const tr = document.createElement('tr');
+        let statusHtml = "";
+
+        if (reg.devolucao === "SIM") {
+            tr.style.backgroundColor = "#dcfce7";
+            tr.style.color = "#166534";
+            statusHtml = `
+                <span class="badge" style="background:#166534; color:white;">DEVOLVIDO</span>
+                <div style="font-size: 0.75rem; margin-top:4px;">R$ 0,00</div>`;
+        } else {
+            tr.style.backgroundColor = "#fee2e2";
+            tr.style.color = "#991b1b";
+            
+            let corBadge = "background:#e2e8f0; color:#475569;";
+            if(freq >= 5) corBadge = "background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;";
+            else if(freq >= 3) corBadge = "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
+
+            statusHtml = `
+                <span class="badge" style="${corBadge}">${freq}x</span>
+                <div style="font-size: 0.8rem; font-weight:bold; margin-top:4px;">
+                    ${precoUnit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>`;
         }
 
-        const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${reg.funcionario}</td>
             <td><strong>${reg.epi}</strong></td>
             <td>${reg.dataTexto}</td>
-            <td>
-                <span class="badge" style="padding: 5px 10px; border-radius: 12px; font-weight: bold; ${estiloBadge}">
-                    ${frequenciaEpi}x
-                </span>
-            </td>
+            <td style="text-align:center;">${statusHtml}</td>
         `;
         tbody.appendChild(tr);
     });
 }
 
+// 4. POPULAR SELECT (Apenas colaboradores com pedidos realizados)
+function popularSelectFunc() {
+    const select = document.getElementById('filtroColaborador');
+    if (!select || !dadosPedidos.length) return;
+    const nomesPresentes = [...new Set(dadosPedidos.map(d => d.funcionario))].filter(n => n).sort();
+    const valorAtual = select.value;
+    select.innerHTML = '<option value="TODOS">-- Todos os Colaboradores --</option>';
+    nomesPresentes.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome; opt.textContent = nome;
+        select.appendChild(opt);
+    });
+    select.value = valorAtual || "TODOS";
+}
+
+// 5. RELATÓRIO INDIVIDUAL E BADGES DE FREQUÊNCIA (Xx) + PREÇO UNITÁRIO
+function gerarRelatorioIndividual(filtrados) {
+    const tbody = document.querySelector('#tabelaAnalise tbody');
+    const filtroColab = document.getElementById('filtroColaborador').value;
+    tbody.innerHTML = '';
+    
+    document.getElementById('tituloRelatorio').textContent = filtroColab !== "TODOS" ? 
+        `Análise Detalhada: ${filtroColab}` : "Resumo Geral de Utilização";
+
+    const ordenados = [...filtrados].sort((a, b) => b.data - a.data);
+
+    ordenados.forEach(reg => {
+        // Busca o preço no dicionário carregado da aba 'epis'
+        const precoUnitario = precosEpis[reg.epi] || 0;
+        
+        // Lógica de Frequência do Item (Apenas para saídas)
+        const frequenciaEpi = filtrados.filter(f => f.epi === reg.epi && f.funcionario === reg.funcionario && f.devolucao !== "SIM").length;
+        
+        let estiloBadge = "background: #e2e8f0; color: #475569;"; 
+        if (frequenciaEpi >= 5) {
+            estiloBadge = "background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;"; 
+        } else if (frequenciaEpi >= 3) {
+            estiloBadge = "background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;"; 
+        }
+
+        const tr = document.createElement('tr');
+        
+        // Define o que mostrar na coluna de Preço/Status
+        let conteudoStatus = "";
+        if (reg.devolucao === "SIM") {
+            tr.style.backgroundColor = "#dcfce7"; // Verde
+            tr.style.color = "#166534";
+            conteudoStatus = `
+                <span class="badge" style="background: #166534; color: white;">DEVOLVIDO</span>
+                <div style="font-size: 0.75rem; margin-top: 4px; opacity: 0.8;">R$ 0,00</div>
+            `;
+        } else {
+            tr.style.backgroundColor = "#fee2e2"; // Vermelho
+            tr.style.color = "#991b1b";
+            conteudoStatus = `
+                <span class="badge" style="${estiloBadge}">${frequenciaEpi}x</span>
+                <div style="font-size: 0.8rem; font-weight: bold; margin-top: 4px;">
+                    ${precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+            `;
+        }
+
+        tr.innerHTML = `
+            <td>${reg.funcionario}</td>
+            <td><strong>${reg.epi}</strong></td>
+            <td>${reg.dataTexto}</td>
+            <td style="text-align: center;">
+                ${conteudoStatus}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+// 6. RENDERIZAR GRÁFICO (Chart.js)
 let meuGrafico = null;
-
-function renderizarGrafico(contagemEPI) {
+function renderizarGrafico(contagemSaidas, contagemDevolucoes) {
     const ctx = document.getElementById('graficoEpi').getContext('2d');
+    if (meuGrafico) meuGrafico.destroy();
     
-    if (meuGrafico) {
-        meuGrafico.destroy();
-    }
-
-    const labels = Object.keys(contagemEPI);
-    const valores = Object.values(contagemEPI);
+    const todosEPIs = [...new Set([...Object.keys(contagemSaidas), ...Object.keys(contagemDevolucoes)])];
     
-    // Calcula o maior valor para ajustar o teto do gráfico
-    const maxValor = Math.max(...valores, 0);
-
     meuGrafico = new Chart(ctx, {
         type: 'bar',
         plugins: [ChartDataLabels], 
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Quantidade',
-                data: valores,
-                backgroundColor: '#3498db',
-                borderRadius: 5,
-                borderWidth: 1
-            }]
+            labels: todosEPIs,
+            datasets: [
+                { label: 'Saídas', data: todosEPIs.map(e => contagemSaidas[e] || 0), backgroundColor: '#ef4444', borderRadius: 5 },
+                { label: 'Devoluções', data: todosEPIs.map(e => contagemDevolucoes[e] || 0), backgroundColor: '#22c55e', borderRadius: 5 }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: {
-                    top: 30 // Espaço extra no topo para o número não cortar
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                datalabels: {
-                    color: '#444', // Cor escura para ler fora da barra
-                    anchor: 'end', // Prende no topo da barra
-                    align: 'top',  // Posiciona ACIMA da barra
-                    offset: 4,     // Distância da barra
-                    font: {
-                        weight: 'bold',
-                        size: 12
-                    },
-                    formatter: (value) => value
-                }
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    suggestedMax: maxValor + 2, // Garante que o teto seja sempre maior que a maior barra
-                    ticks: { 
-                        precision: 0,
-                        stepSize: 1 // Força escala de 1 em 1 (evita decimais)
-                    }
-                }
-            }
+            plugins: { datalabels: { anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v : '' } }
         }
     });
 }
 
-
+// Funções de Interface
 function filtrarTabelaPorTexto() {
     const termo = document.getElementById('inputBuscaRapida').value.toLowerCase();
-    const linhas = document.querySelectorAll('#tabelaAnalise tbody tr');
-
-    linhas.forEach(linha => {
-        // Pega o texto da primeira coluna (nome do funcionário)
-        const nomeFuncionario = linha.querySelector('td:first-child').textContent.toLowerCase();
-        
-        // Se o termo digitado estiver no nome, mostra a linha, senão esconde
-        if (nomeFuncionario.includes(termo)) {
-            linha.style.display = "";
-        } else {
-            linha.style.display = "none";
-        }
+    document.querySelectorAll('#tabelaAnalise tbody tr').forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(termo) ? "" : "none";
     });
 }
 
+function toggleDatasPersonalizadas() {
+    const divDatas = document.getElementById('divDatasPersonalizadas');
+    divDatas.style.display = document.getElementById('filtroPeriodo').value === 'custom' ? 'flex' : 'none';
+    if (divDatas.style.display === 'none') processarDashboard();
+}
 
-document.addEventListener('DOMContentLoaded', carregarDados);
+// 7. INICIALIZAÇÃO SÍNCRONA
+document.addEventListener('DOMContentLoaded', async () => {
+    await carregarPrecos(); // Primeiro carrega os preços
+    await carregarDados();  // Depois os pedidos
+});
