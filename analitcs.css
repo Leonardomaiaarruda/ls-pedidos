@@ -1,7 +1,8 @@
 /* 1. ESTRUTURA GLOBAL E DASHBOARD */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    /* Ajustado para 4 colunas em telas grandes */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 15px;
     margin-bottom: 25px;
     width: 100%;
@@ -14,20 +15,38 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     border-top: 6px solid #2563eb;
     text-align: center;
-    box-sizing: border-box; /* Garante que o padding não aumente o card */
+    box-sizing: border-box;
+    transition: transform 0.2s;
+}
+
+.card-stat h3 {
+    color: #475569;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+}
+
+.card-stat p {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.text-danger {
+    color: #e11d48 !important; /* Vermelho moderno para o financeiro */
 }
 
 /* 2. GRÁFICOS - O CONTROLE CRÍTICO */
 .chart-container {
     position: relative;
-    /* Força uma altura fixa para não 'explodir' na tela */
     height: 300px !important; 
     width: 100%;
     margin: 0 auto 20px auto;
 }
 
 canvas {
-    /* Impede que o canvas ignore o tamanho do container pai */
     max-width: 100% !important;
     max-height: 100% !important;
 }
@@ -35,38 +54,55 @@ canvas {
 /* 3. TABELA COM SCROLL LATERAL BLINDADO */
 #areaRelatorio {
     width: 100%;
-    overflow-x: auto; /* Scroll apenas se necessário */
+    overflow-x: auto;
     overflow-y: hidden;
     background: #fff;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
-    -webkit-overflow-scrolling: touch; /* Suavidade no iPhone */
+    -webkit-overflow-scrolling: touch;
 }
 
 table {
     width: 100%;
-    /* No mobile, a tabela precisa ser mais larga que a tela para o texto ficar legível */
     min-width: 700px; 
     border-collapse: collapse;
 }
 
 th, td {
     padding: 12px 15px;
-    white-space: nowrap; /* Impede o texto de quebrar linha e amontoar */
+    white-space: nowrap;
 }
 
-/* 4. ALERTAS */
+/* 4. BADGES DE FREQUÊNCIA (Xx) */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* 5. ALERTAS */
 .alerta-item {
     background: #fff1f2;
-    border-left: 5px solid #ef4444;
+    border-left: 5px solid #e11d48; /* Corrigido para o vermelho do sistema */
     padding: 15px;
     border-radius: 8px;
     margin-bottom: 10px;
-    word-wrap: break-word; /* Protege contra textos muito longos */
+    color: #9f1239;
+    word-wrap: break-word;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
 /* =============================================
-   MEDIA QUERIES - REFINAMENTO MOBILE
+    MEDIA QUERIES - REFINAMENTO MOBILE
    ============================================= */
 
 @media (max-width: 768px) {
@@ -75,17 +111,17 @@ th, td {
     }
     
     .chart-container {
-        height: 250px !important; /* Um pouco menor em tablets */
+        height: 250px !important;
     }
 }
 
 @media (max-width: 480px) {
     body {
-        padding: 10px; /* Mais espaço para o conteúdo no celular */
+        padding: 10px;
     }
 
     .dashboard-grid {
-        grid-template-columns: 1fr; /* Coluna única */
+        grid-template-columns: 1fr;
     }
 
     .card-stat p {
@@ -93,18 +129,19 @@ th, td {
     }
 
     .chart-container {
-        height: 220px !important; /* Tamanho ideal para celular */
+        height: 220px !important;
     }
 
-    /* Ajuste de filtros para não esmagar */
     .row {
         flex-direction: column;
         display: flex;
         gap: 12px;
     }
 
-    select, button {
-        font-size: 16px; /* Evita zoom automático no iOS */
+    select, button, input {
+        font-size: 16px;
         padding: 12px;
+        width: 100%;
+        box-sizing: border-box;
     }
 }
