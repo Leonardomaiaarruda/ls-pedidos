@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="pedidos.css">
     <link rel="stylesheet" href="login.css">
     <link rel="stylesheet" href="analitcs.css">
+    <style>
+        /* Ajuste para acomodar 4 cards na grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .text-danger { color: #ef4444; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -17,7 +27,7 @@
         </header>
 
          <nav class="menu-principal">
-            <button onclick="window.location.href='Pedidos.html'" class="btn-menu">Pedidos</button>
+            <button onclick="window.location.href='pedidos.html'" class="btn-menu">Pedidos</button>
             <button class="btn-menu analytics" onclick="alternarTela('analytics', this)">Analytics</button>
         </nav>
 
@@ -30,17 +40,21 @@
 
         <div class="dashboard-grid">
             <div class="card-stat">
-                <h3>Total de EPI'S</h3>
+                <h3>Total de Movimentações</h3>
                 <p id="totalMes">0</p>
+                <small>pedidos e devoluções</small>
             </div>
-            <div class="card-stat" style="border-top-color: #ffc107;">
-                <h3>Média de Retiradas</h3>
-                <p id="mediaConsumo">0</p>
-                <small>por colaborador/período</small>
+
+            <div class="card-stat" style="border-top-color: #ef4444;">
+                <h3>Custo em Aberto</h3>
+                <p id="custoTotal" class="text-danger">R$ 0,00</p>
+                <small>valor dos itens não devolvidos</small>
             </div>
+
             <div class="card-stat" style="border-top-color: #28a745;">
                 <h3>EPI Mais Requisitado</h3>
                 <p id="epiTop" style="font-size: 1.1rem; margin-top: 15px;">---</p>
+                <small>item com maior volume</small>
             </div>
         </div>
 
@@ -54,41 +68,64 @@
         <div class="card border-danger">
             <h2>⚠️ Alertas de Consumo Elevado</h2>
             <p class="instrucao">Acima de 50% da média da equipe no período selecionado:</p>
-            <div id="listaAlertas" class="alerta-container">
-                </div>
+            <div id="listaAlertas" class="alerta-container"></div>
         </div>
 
         <div class="card">
             <h2>🔍 Análise Detalhada</h2>
-            <div class="col">
-                <label>🔍 Busca por Nome:</label>
-                <input type="text" id="inputBuscaRapida" placeholder="Digite o nome..." onkeyup="filtrarTabelaPorTexto()">
-            </div>
+            
+            <div class="row no-print" style="margin-bottom: 20px;">
+                <div class="col">
+                    <label>🔍 Busca por Nome:</label>
+                    <input type="text" id="inputBuscaRapida" placeholder="Digite o nome..." onkeyup="filtrarTabelaPorTexto()">
+                </div>
 
-             <div class="col">
-                <label>Selecionar Colaborador:</label>
-                <select id="filtroFuncionario" onchange="gerarRelatorioIndividual()">
-                    <option value="">Todos os Colaboradores</option>
-                </select>
+                <div class="col">
+                    <label>Selecionar Colaborador:</label>
+                    <select id="filtroColaborador" onchange="processarDashboard()">
+                        <option value="TODOS">Carregando nomes...</option>
+                    </select>
+                </div>
             </div>
 
             <div class="row no-print">
                 <div class="col">
-                    <label>Período:</label>
-                    <select id="filtroPeriodo" onchange="processarDashboard()">
+                    <label>Filtrar por Período:</label>
+                    <select id="filtroPeriodo" onchange="toggleDatasPersonalizadas()">
                         <option value="mes">Este Mês</option>
                         <option value="ano">Este Ano</option>
                         <option value="total">Histórico Completo</option>
+                        <option value="custom">📅 Selecionar Data</option>
                     </select>
                 </div>
-               
+
+                <div id="divDatasPersonalizadas" style="display: none; gap: 10px; margin-top: 10px; width: 100%;">
+                    <div class="col">
+                        <label>De:</label>
+                        <input type="date" id="dataInicio" onchange="processarDashboard()">
+                    </div>
+                    <div class="col">
+                        <label>Até:</label>
+                        <input type="date" id="dataFim" onchange="processarDashboard()">
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Ver Devoluções:</label>
+                    <select id="filtroDevolucao" onchange="processarDashboard()">
+                        <option value="TODOS">Todos</option>
+                        <option value="SIM">Devolvidos</option>
+                        <option value="NÃO">Não Devolvidos</option>
+                    </select>
+                </div>
+                
                 <div class="col btn-container-print">
-                    <button onclick="window.print()" class="btn-menu" style="background: #2563eb; width: 100%;">🖨️ Exportar PDF</button>
+                    <button onclick="window.print()" class="btn-menu" style="background: #2563eb; width: 100%; margin-top: 24px;">🖨️ Exportar PDF</button>
                 </div>
             </div>
 
             <div id="areaRelatorio">
-                <h3 id="tituloRelatorio" style="margin-bottom: 15px;">Resumo de Utilização</h3>
+                <h3 id="tituloRelatorio" style="margin-bottom: 15px; margin-top: 20px;">Resumo de Utilização</h3>
                 <div class="tabela-responsiva">
                     <table id="tabelaAnalise">
                         <thead>
@@ -96,7 +133,7 @@
                                 <th>Colaborador</th>
                                 <th>EPI</th>
                                 <th>Data</th>
-                                <th>Frequência</th>
+                                <th>Frequência / Status</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -108,7 +145,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    
     <script src="analytics.js"></script>
 </body>
 </html>
